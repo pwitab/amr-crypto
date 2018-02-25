@@ -9,7 +9,7 @@ setup(
            'Palmlund Wahlgren Innovative Technology AB',
     author_email='henrik@pwit.se',
     license='BSD 3-Clause License',
-    packages=['amr_crypto'],
+    packages=['amr_crypto', 'amr_crypto.dlms'],
     install_requires=['cryptography', ]
 
 )
