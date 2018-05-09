@@ -4,7 +4,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography import utils
 from cryptography.hazmat.backends.openssl import aead
 from cryptography.hazmat.backends.openssl.backend import backend
-import os
 
 """
 Security Suites in DLMS/COSEM define what cryptographic algorithms that are
@@ -18,7 +17,7 @@ class SecuritySuiteFactory:
         self._encryption_key = encryption_key
 
     def get_security_suite(self, number):
-        if not number in [0, 1, 2]:
+        if number not in [0, 1, 2]:
             raise ValueError('Only Security Suites of 0-2 exists')
 
         if number == 0:
@@ -32,6 +31,15 @@ class SecuritySuiteFactory:
 
 
 class AESGCMDLMS(AESGCM):
+    """
+    Subclass of Cryptographys AESGCM. The problem is that Cryptographys standard
+    implementation is using 16 byte auth tag and DLMS use 12 bytes.
+    """
+
+    # TODO: Use the streaming API for Cryptography instead.
+    # (talked to the maintainers and especially for the higher suites we need
+    # to have another way of doing it
+
     def __init__(self, key, tag_length):
         super().__init__(key)
         utils._check_bytes("key", key)
@@ -50,7 +58,6 @@ class AESGCMDLMS(AESGCM):
             backend, self, nonce, data, associated_data, self._tag_length
         )
 
-
     def decrypt(self, nonce, data, associated_data):
         if associated_data is None:
             associated_data = b""
@@ -59,7 +66,6 @@ class AESGCMDLMS(AESGCM):
         return aead._decrypt(
             backend, self, nonce, data, associated_data, self._tag_length
         )
-
 
 
 class SecuritySuite0:
@@ -92,13 +98,14 @@ class SecuritySuite0:
         self.cipher_backend = default_backend()
         self.aesgcm = AESGCMDLMS(encryption_key, tag_length=12)
 
-    def encrypt(self, initialization_vector, data_to_encrypt, associated_data=None):
+    def encrypt(self, initialization_vector, data_to_encrypt,
+                associated_data=None):
         """
 
         :param initialization_vector:
         :param data_to_encrypt:
         :param associated_data:
-        :return: The ciphertext bytes with the 16 byte tag appended
+        :return: The ciphertext bytes with the 12 byte tag appended
         """
         assert len(initialization_vector) == 12
 
@@ -109,7 +116,8 @@ class SecuritySuite0:
 
         return encrypted_data
 
-    def decrypt(self, initialization_vector, data_to_decrypt, associated_data=None):
+    def decrypt(self, initialization_vector, data_to_decrypt,
+                associated_data=None):
         assert len(initialization_vector) == 12
 
         decrypted_data = self.aesgcm.decrypt(nonce=initialization_vector,
@@ -145,57 +153,59 @@ class SecuritySuite0:
             raise ValueError('Keys must be {} bits'.format(bits))
 
 
-class SecuritySuite1(SecuritySuite0):
-    """
-    Security Suite 1 or ECDH-ECDSA-AES-GCM-128-SHA-256 contains the following:
-
-    Authenticated Encryption:
-        AES-GCM-128
-
-    Digital Signature:
-        ECDSA with P-256
-
-    Key Agreement:
-        ECDH with P-256
-
-    Hash:
-        SHA-256
-
-    Key Transport:
-        AES-128 Key Wrap
-
-    Compression:
-        V.44
-    """
-
-    def __init__(self):
-        self.cipher_backend = default_backend()
-
-
-class SecuritySuite2:
-    """
-    Security Suite 2 or ECDH-ECDSA-AES-GCM-256-SHA-384 contains the following:
-
-    Authenticated Encryption:
-        AES-GCM-256
-
-    Digital Signature:
-        ECDSA with P-384
-
-    Key Agreement:
-        ECDH with P-384
-
-    Hash:
-        SHA-384
-
-    Key Transport:
-        AES-256 Key Wrap
-
-    Compression:
-        V.44
-    """
-
-    def __init__(self):
-        self.cipher_backend = default_backend()
-
+# class SecuritySuite1(SecuritySuite0):
+#     """
+#     Security Suite 1 or ECDH-ECDSA-AES-GCM-128-SHA-256 contains the following:
+#
+#     Authenticated Encryption:
+#         AES-GCM-128
+#
+#     Digital Signature:
+#         ECDSA with P-256
+#
+#     Key Agreement:
+#         ECDH with P-256
+#
+#     Hash:
+#         SHA-256
+#
+#     Key Transport:
+#         AES-128 Key Wrap
+#
+#     Compression:
+#         V.44
+#     """
+#
+#     def __init__(self, encryption_key):
+#
+#         super().__init__(encryption_key)
+#         self.cipher_backend = default_backend()
+#
+#
+# class SecuritySuite2:
+#     """
+#     Security Suite 2 or ECDH-ECDSA-AES-GCM-256-SHA-384 contains the following:
+#
+#     Authenticated Encryption:
+#         AES-GCM-256
+#
+#     Digital Signature:
+#         ECDSA with P-384
+#
+#     Key Agreement:
+#         ECDH with P-384
+#
+#     Hash:
+#         SHA-384
+#
+#     Key Transport:
+#         AES-256 Key Wrap
+#
+#     Compression:
+#         V.44
+#     """
+#
+#     def __init__(self):
+#         self.cipher_backend = default_backend()
+#
 
